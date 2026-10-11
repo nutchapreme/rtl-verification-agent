@@ -1,3 +1,70 @@
+# RTL Verification Agent — Hack the Chip
+An LLM agent that writes, verifies, debugs, and shrinks Verilog — with automatically built, self-validating testbenches. Built at Hack the Chip (NYU × Annapurna Labs), running Qwen3-8B on AWS Trainium.
+▶️ **[Watch the demo](https://drive.google.com/file/d/1sIE-DuOsCm-UA-gEFDILe99F9bICs9Tz/view?usp=sharing)**
+
+
+## My part: verification (DV) + system integration
+
+I built the checker (everything that decides PASS / FAIL) and integrated all five modules into one working pipeline.
+
+**Integration**
+- Designed the **front door** (`vagent.py` menu) and the JSON hand-off format `{prompt, verilog, testbench?}` shared by every module.
+- Wrote the **glue** (`run.py`): generate → verify → feedback → fix → optimize → summary, with clear outcomes (PASS / FAIL / TESTBENCH ERROR / REVIEW / NOT TESTED).
+- Connected the **feedback engine** to the fix step (its diagnosis is fed into the AI's fix prompt) and the **optimizer + comparator** after PASS.
+- Fixed integration bugs across modules (e.g. Yosys stats output path, final-circuit reporting) and verified the full loop end to end on the Trainium pod.
+
+**Verification**
+
+- **Python golden model**: the AI writes only the expected-output function in Python (3 independent versions, 2 must agree); Python generates the testbench with every expected value baked in.
+- **Stimulus**: exhaustive for ≤12 input bits, else 4000 seeded random vectors; clocked designs get 300 cycles with resets.
+- **The testbench is checked too**: rejected unless it compiles, **fails an empty design**, and toggles every input bit (coverage).
+- **Judge**: when a design fails, a second check asks "is the design wrong, or the golden model?" so correct designs aren't "fixed".
+- **Mutation testing**: plants small bugs in passing designs to prove the testbench catches them.
+- **Hand-off**: `for_feedback.json` on FAIL, `for_optimize.json` on PASS; every attempt logged.
+
+Files: `vagent.py`, `verify.py`, `run.py`, `mutate.py`, `make_tests.py`, `attempt_log.py`, `CHECKER.md`
+
+## Results
+
+| Test | Result |
+|---|---|
+| Testbench exam: 9 circuits, correct + buggy version each | **3/9 → 7/9** fully correct (Verilog reference → Python golden model) |
+| Repeatability | 2 runs, identical results |
+| Planted bugs caught | **9/9** per run |
+| Mutation testing | **45/45** mutants killed |
+| End-to-end fix | buggy popcount: score 0.5 → feedback → AI fix → **1.0** |
+| Optimizer | redundant comparator **61 → 38 cells (38% smaller)**, still passes |
+
+Known limit: all golden models come from the same AI, so a shared misunderstanding can slip through voting (e.g. priority encoder). Next step: an independent, larger judge model and formal equivalence checking.
+
+Details: [`CHECKER.md`](projects/03-verilog-agent/CHECKER.md) · [`NOTE.md`](projects/03-verilog-agent/NOTE.md)
+
+## Try it
+
+Needs Python 3, Icarus Verilog, Yosys, and an OpenAI-compatible LLM server (e.g. vLLM serving Qwen3-8B) at `localhost:8000`.
+
+```bash
+git clone https://github.com/<your-username>/rtl-verification-agent
+cd rtl-verification-agent/projects/03-verilog-agent
+# Linux: sudo apt install iverilog yosys     macOS: brew install icarus-verilog yosys
+python vagent.py
+```
+
+Quick demo: choose **2**, enter `examples/gt8_shrink.v`, description
+`gt is 1 when the 8-bit unsigned input a is greater than b, else 0`, then Enter → y → y.
+
+## Team
+
+- **Preme Malaviphusit**: verification / testbench (DV), system integration
+- **Mandy Wang**: prompt → Verilog generation (`prompt.py`)
+- **Pasang Bhote**: feedback engine (`feedback.py`)
+- **Cristy Zhang**: optimizer (`optimize_agent.py`, `qwen_client.py`, `yosys_checker.py`)
+- **Kassidy Tang**: comparator (`comparator.py`)
+
+---
+
+*Original hackathon workshop README below.*
+
 # Hack the Chip — NYU × Annapurna Labs
 
 **Annapurna Labs** is the Amazon team that designs **AWS Trainium**, the custom silicon behind a large
