@@ -1,5 +1,6 @@
 # RTL Verification Agent — Hack the Chip
 An LLM agent that writes, verifies, debugs, and shrinks Verilog — with automatically built, self-validating testbenches. Built at Hack the Chip (NYU × Annapurna Labs), running Qwen3-8B on AWS Trainium.
+
 ▶️ **[Watch the demo](https://drive.google.com/file/d/1sIE-DuOsCm-UA-gEFDILe99F9bICs9Tz/view?usp=sharing)**
 
 
